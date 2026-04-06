@@ -1,0 +1,6 @@
+__pycache__/
+
+# Información privada 
+data/raw/*
+data/cache/*
+data/output/*
