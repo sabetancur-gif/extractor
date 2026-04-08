@@ -34,6 +34,9 @@ def layout():
 
         dcc.Store(id="sidebar-state", data=True),
 
+        dcc.Store(id="llm-context", data={}),
+        dcc.Store(id="analysis-view-state", data={}),
+
         dcc.Download(id="download-md"),
         dcc.Download(id="download-html"),
         dcc.Download(id="download-visualization"),
@@ -119,6 +122,12 @@ def layout():
                             tab_id="tab-pdf-analysis",
                             tabClassName="sidebar-tab",
                             labelClassName="tab-icon tab-icon-pdf"
+                        ),
+                        dbc.Tab(
+                            label="LLM Enrichment",
+                            tab_id="tab-llm-analysis",
+                            tabClassName="sidebar-tab",
+                            labelClassName="tab-icon tab-icon-ai",
                         ),
                         dbc.Tab(
                             label="Format Conversion",
@@ -631,14 +640,100 @@ def get_tabs_layout():
                                 html.Div(id="pdf-summary-output", className="mt-2"),
                             ]),
                         ], className="shadow-lg border-0 mb-3"),
-                    ], md=5),
+
+                        dbc.Card([
+                            dbc.CardHeader(
+                                [html.H4("Automatic document overview", className="center-color")],
+                                className="bg-primary"
+                            ),
+                            dbc.CardBody([
+                                html.Div(id="pdf-auto-analysis-output", className="mt-2"),
+                            ]),
+                        ], className="shadow-lg border-0 mb-3"),
+
+                    ], md=4),
 
                     dbc.Col([
                         html.Div(id="pdf-analysis-output", className="mt-2"),
-                    ], md=7)
+                    ], md=8)
                 ]),
             ]
         ),
+
+        # ==================== TAB 4: LLM ANALYSIS ====================
+        html.Div(
+            id="tab-llm-analysis-content",
+            style={"display": "none"},
+            children=[
+                dbc.Container(
+                    [
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    dbc.Card(
+                                        [
+                                            dbc.CardHeader(html.H4("LLM Enrichment", className="center-color")),
+                                            dbc.CardBody(
+                                                [
+                                                    dcc.Dropdown(
+                                                        id="llm-doc-selector",
+                                                        options=[],
+                                                        placeholder="Selecciona el documento",
+                                                        clearable=False,
+                                                        className="mb-2 dropdown-gradient",
+                                                    ),
+                                                    dcc.Dropdown(
+                                                        id="llm-mode",
+                                                        options=[
+                                                            {"label": "Auto fill missing", "value": "auto_fill_missing"},
+                                                            {"label": "Summarize", "value": "summarize"},
+                                                            {"label": "Describe images/tables", "value": "describe_assets"},
+                                                        ],
+                                                        value="auto_fill_missing",
+                                                        clearable=False,
+                                                        className="mb-2 dropdown-gradient",
+                                                    ),
+                                                    dbc.Button(
+                                                        "Run LLM enrichment",
+                                                        id="run-llm-btn",
+                                                        color="primary",
+                                                        className="w-100 fw-bold shadow-sm",
+                                                    ),
+                                                ]
+                                            ),
+                                        ],
+                                        className="shadow-lg border-0 mb-3",
+                                    ),
+                                    md=4,
+                                ),
+                                dbc.Col(
+                                    [
+                                        dbc.Card(
+                                            [
+                                                dbc.CardHeader(html.H5("LLM summary", className="center-color")),
+                                                dbc.CardBody(html.Div(id="llm-summary-output")),
+                                            ],
+                                            className="shadow-lg border-0 mb-3",
+                                        ),
+                                        dbc.Card(
+                                            [
+                                                dbc.CardHeader(html.H5("LLM results", className="center-color")),
+                                                dbc.CardBody(html.Div(id="llm-results-output")),
+                                            ],
+                                            className="shadow-lg border-0 mb-3",
+                                        ),
+                                    ],
+                                    md=8,
+                                ),
+                            ],
+                            className="g-3",
+                        )
+                    ],
+                    fluid=True,
+                )
+            ],
+        ),
+
 
         # html.Div(
         #     id="tab-ocr-processing-content",

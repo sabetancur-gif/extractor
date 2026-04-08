@@ -20,6 +20,7 @@ Relación handlers/tabs/features:
     12: Navegación OCR
     13: Overlays
     14: Navegación visualización
+    15: LLM enrichment and correction
 """
 
 from src.app.handlers.visualization_download import register_callbacks_01
@@ -36,6 +37,7 @@ from src.app.handlers.clustering import register_callbacks_11
 from src.app.handlers.ocr_navigation import register_callbacks_12
 from src.app.handlers.overlays import register_callbacks_13
 from src.app.handlers.visualization_navigation import register_callbacks_14
+from src.app.handlers.llm_analysis import register_callbacks_15
 
 def register_callbacks(app, controller, embedder=None):
     """
@@ -58,6 +60,7 @@ def register_callbacks(app, controller, embedder=None):
         register_callbacks_12,
         register_callbacks_13,
         register_callbacks_14,
+        register_callbacks_15,
     ], start=1):
         try:
             fn(app, controller, embedder=embedder)

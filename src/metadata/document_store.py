@@ -48,7 +48,29 @@ class DocumentStore:
         if not os.path.exists(json_path):
             raise FileNotFoundError(f"No document.json for {doc_id}")
         with open(json_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            doc = json.load(f)
+        # --- Agregar overlays si no existen ---
+        if "overlays" not in doc or not doc["overlays"]:
+            overlay_dir = os.path.join("data", "cache", doc_id, "overlays")
+            overlays = []
+            if os.path.exists(overlay_dir):
+                for fname in sorted(os.listdir(overlay_dir)):
+                    if fname.lower().endswith((".png", ".jpg", ".jpeg")):
+                        parts = fname.split('p')
+                        if len(parts) > 1 and parts[-1].split('.')[0].isdigit():
+                            page_number = int(parts[-1].split('.')[0])
+                        else:
+                            continue
+                        overlays.append({
+                            'page_number': page_number,
+                            'path': os.path.join('data', 'cache', doc_id, 'overlays', fname)
+                        })
+            if overlays:
+                doc["overlays"] = overlays
+                # Guardar de vuelta para persistencia
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(doc, f, ensure_ascii=False, indent=2)
+        return doc
 
     def list_documents(self):
         return [name for name in os.listdir(self.base_dir) if os.path.isdir(os.path.join(self.base_dir, name))]

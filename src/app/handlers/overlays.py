@@ -8,9 +8,12 @@ import os
 
 # THIRDPARTY
 import dash
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html, ctx
 
 from src.logs.logger import LogManager
+from src.utils.crop import crop_page_region
+import dash_bootstrap_components as dbc
+
 
 
 def register_callbacks_13(app, controller, embedder=None):
@@ -35,6 +38,73 @@ def register_callbacks_13(app, controller, embedder=None):
     def serve_overlay(filename):
         # Seguridad mínima: solo sirve dentro de OVERLAY_DIR
         return flask.send_from_directory(OVERLAY_DIR, filename)
+
+    @app.callback(
+        Output("analysis-selection-preview", "children"),
+        Input("analysis-fields-datatable", "active_cell"),
+        Input("analysis-blocks-datatable", "active_cell"),
+        State("analysis-fields-datatable", "derived_viewport_data"),
+        State("analysis-blocks-datatable", "derived_viewport_data"),
+        State("doc-context", "data"),
+        prevent_initial_call=True,
+    )
+    def preview_selected_row(active_field, active_block, fields_view, blocks_view, doc_ctx):
+        if not doc_ctx:
+            raise dash.exceptions.PreventUpdate
+
+        triggered = ctx.triggered_id
+        if triggered == "analysis-fields-datatable":
+            active_cell = active_field
+            view_data = fields_view or []
+        elif triggered == "analysis-blocks-datatable":
+            active_cell = active_block
+            view_data = blocks_view or []
+        else:
+            raise dash.exceptions.PreventUpdate
+
+        if not active_cell or not view_data:
+            raise dash.exceptions.PreventUpdate
+
+        row_idx = active_cell.get("row")
+        if row_idx is None or row_idx >= len(view_data):
+            raise dash.exceptions.PreventUpdate
+
+        row = view_data[row_idx]
+
+        bbox = row.get("bbox")
+        page_number = row.get("page_number")
+
+        # Busca la página/overlay correspondiente
+        overlays = doc_ctx.get("overlays", []) or []
+        page_image = ""
+        for ov in overlays:
+            ov_page = ov.get("page_number", ov.get("page_index"))
+            if str(ov_page) == str(page_number):
+                page_image = ov.get("path") or ov.get("image") or ""
+                break
+
+        print("[DEBUG preview_selected_row]")
+        print(f"  page_number: {page_number}")
+        print(f"  bbox: {bbox}")
+        print(f"  page_image: {page_image}")
+
+        crop_src = crop_page_region(page_image, bbox) if page_image and bbox else ""
+
+        return dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H6("Selected item preview"),
+                    html.Div(f"Page: {page_number}"),
+                    html.Div(f"Text: {row.get('text', '')[:300]}"),
+                    html.Hr(),
+                    html.Img(
+                        src=crop_src,
+                        style={"width": "100%", "height": "auto", "borderRadius": "8px"},
+                    ) if crop_src else html.Div("No crop available.", className="text-muted"),
+                ]
+            ),
+            className="shadow-sm",
+        )
 
     # === Callback: dibujar rect y cambiar página según fila seleccionada ===
     @app.callback(
