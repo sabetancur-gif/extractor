@@ -12,6 +12,7 @@ from dash import Input, Output, State, html, ctx
 
 from src.logs.logger import LogManager
 from src.utils.crop import crop_page_region
+from src.utils.bbox import row_bbox, row_page_number, find_overlay_for_page, normalize_page_number
 import dash_bootstrap_components as dbc
 
 
@@ -41,25 +42,13 @@ def register_callbacks_13(app, controller, embedder=None):
 
     @app.callback(
         Output("analysis-selection-preview", "children"),
-        Input("analysis-fields-datatable", "active_cell"),
-        Input("analysis-blocks-datatable", "active_cell"),
-        State("analysis-fields-datatable", "derived_viewport_data"),
-        State("analysis-blocks-datatable", "derived_viewport_data"),
+        Input("analysis-datatable", "active_cell"),
+        State("analysis-datatable", "derived_viewport_data"),
         State("doc-context", "data"),
         prevent_initial_call=True,
     )
-    def preview_selected_row(active_field, active_block, fields_view, blocks_view, doc_ctx):
+    def preview_selected_row(active_cell, view_data, doc_ctx):
         if not doc_ctx:
-            raise dash.exceptions.PreventUpdate
-
-        triggered = ctx.triggered_id
-        if triggered == "analysis-fields-datatable":
-            active_cell = active_field
-            view_data = fields_view or []
-        elif triggered == "analysis-blocks-datatable":
-            active_cell = active_block
-            view_data = blocks_view or []
-        else:
             raise dash.exceptions.PreventUpdate
 
         if not active_cell or not view_data:
@@ -70,41 +59,159 @@ def register_callbacks_13(app, controller, embedder=None):
             raise dash.exceptions.PreventUpdate
 
         row = view_data[row_idx]
+        bbox = row_bbox(row)
+        page_number = row_page_number(row)
 
-        bbox = row.get("bbox")
-        page_number = row.get("page_number")
+        def _recover_bbox_from_doc_context():
+            block_id = row.get("block_id")
+            text = (row.get("text") or row.get("value") or row.get("field_value") or "").strip()
 
-        # Busca la página/overlay correspondiente
+            pages = doc_ctx.get("pages", []) or []
+            for page in pages:
+                current_page_number = normalize_page_number(page.get("page_number"))
+                if page_number is not None and current_page_number != page_number:
+                    continue
+
+                for block in page.get("blocks", []) or []:
+                    if block_id and block.get("block_id") == block_id:
+                        return row_bbox(block), current_page_number
+                    if text and (block.get("text") or "").strip() == text:
+                        return row_bbox(block), current_page_number
+
+            return None, page_number
+
+        if bbox is None:
+            bbox, page_number = _recover_bbox_from_doc_context()
+
         overlays = doc_ctx.get("overlays", []) or []
-        page_image = ""
-        for ov in overlays:
-            ov_page = ov.get("page_number", ov.get("page_index"))
-            if str(ov_page) == str(page_number):
-                page_image = ov.get("path") or ov.get("image") or ""
-                break
+        overlay = find_overlay_for_page(overlays, page_number)
 
-        print("[DEBUG preview_selected_row]")
-        print(f"  page_number: {page_number}")
-        print(f"  bbox: {bbox}")
-        print(f"  page_image: {page_image}")
+        page_image = ""
+        if overlay:
+            page_image = overlay.get("path") or overlay.get("image") or ""
 
         crop_src = crop_page_region(page_image, bbox) if page_image and bbox else ""
 
-        return dbc.Card(
+        title = row.get("field") or row.get("semantic_type") or row.get("block_type") or "Selected item"
+
+        details = dbc.Card(
             dbc.CardBody(
                 [
-                    html.H6("Selected item preview"),
-                    html.Div(f"Page: {page_number}"),
-                    html.Div(f"Text: {row.get('text', '')[:300]}"),
+                    html.Div(
+                        [
+                            html.H5(title, className="mb-1"),
+                            html.Div(f"Page: {page_number}", className="text-muted"),
+                            html.Div(
+                                row.get("text", "")[:500]
+                                or row.get("value", "")[:500]
+                                or row.get("field_value", "")[:500],
+                                className="mt-2",
+                            ),
+                        ]
+                    ),
                     html.Hr(),
-                    html.Img(
-                        src=crop_src,
-                        style={"width": "100%", "height": "auto", "borderRadius": "8px"},
-                    ) if crop_src else html.Div("No crop available.", className="text-muted"),
+                    html.Div(
+                        [
+                            html.Small("BBox", className="text-muted d-block"),
+                            html.Code(str(bbox) if bbox else "bbox unavailable"),
+                        ]
+                    ),
+                    html.Div(
+                        [
+                            html.Small("Source", className="text-muted d-block mt-2"),
+                            html.Code(str(row.get("source", "unknown"))),
+                        ]
+                    ),
+                    html.Hr(),
+                    html.Div(
+                        html.Img(
+                            src=crop_src,
+                            style={"width": "100%", "height": "auto", "borderRadius": "12px"},
+                        )
+                        if crop_src
+                        else html.Div(
+                            [
+                                html.Div("No crop available.", className="fw-semibold"),
+                                html.Div(
+                                    "The row did not include a usable bbox or the page image was not found.",
+                                    className="text-muted small",
+                                ),
+                            ],
+                            className="text-center py-4",
+                        )
+                    ),
                 ]
             ),
-            className="shadow-sm",
+            className="shadow-sm border-0 analysis-preview-card",
         )
+
+        return details
+    # @app.callback(
+    #     Output("analysis-selection-preview", "children"),
+    #     Input("analysis-fields-datatable", "active_cell"),
+    #     Input("analysis-blocks-datatable", "active_cell"),
+    #     State("analysis-fields-datatable", "derived_viewport_data"),
+    #     State("analysis-blocks-datatable", "derived_viewport_data"),
+    #     State("doc-context", "data"),
+    #     prevent_initial_call=True,
+    # )
+    # def preview_selected_row(active_field, active_block, fields_view, blocks_view, doc_ctx):
+    #     if not doc_ctx:
+    #         raise dash.exceptions.PreventUpdate
+
+    #     triggered = ctx.triggered_id
+    #     if triggered == "analysis-fields-datatable":
+    #         active_cell = active_field
+    #         view_data = fields_view or []
+    #     elif triggered == "analysis-blocks-datatable":
+    #         active_cell = active_block
+    #         view_data = blocks_view or []
+    #     else:
+    #         raise dash.exceptions.PreventUpdate
+
+    #     if not active_cell or not view_data:
+    #         raise dash.exceptions.PreventUpdate
+
+    #     row_idx = active_cell.get("row")
+    #     if row_idx is None or row_idx >= len(view_data):
+    #         raise dash.exceptions.PreventUpdate
+
+    #     row = view_data[row_idx]
+
+    #     bbox = row.get("bbox")
+    #     page_number = row.get("page_number")
+
+    #     # Busca la página/overlay correspondiente
+    #     overlays = doc_ctx.get("overlays", []) or []
+    #     page_image = ""
+    #     for ov in overlays:
+    #         ov_page = ov.get("page_number", ov.get("page_index"))
+    #         if str(ov_page) == str(page_number):
+    #             page_image = ov.get("path") or ov.get("image") or ""
+    #             break
+
+    #     print("[DEBUG preview_selected_row]")
+    #     print(f"  page_number: {page_number}")
+    #     print(f"  bbox: {bbox}")
+    #     print(f"  page_image: {page_image}")
+
+    #     crop_src = crop_page_region(page_image, bbox) if page_image and bbox else ""
+
+    #     return dbc.Card(
+    #         dbc.CardBody(
+    #             [
+    #                 html.H6("Selected item preview"),
+    #                 html.Div(f"Page: {page_number}"),
+    #                 html.Div(f"Text: {row.get('text', '')[:300]}"),
+    #                 html.Hr(),
+    #                 html.Img(
+    #                     src=crop_src,
+    #                     style={"width": "100%", "height": "auto", "borderRadius": "8px"},
+    #                 ) if crop_src else html.Div("No crop available.", className="text-muted"),
+    #             ]
+    #         ),
+    #         className="shadow-sm",
+    #     )
 
     # === Callback: dibujar rect y cambiar página según fila seleccionada ===
     @app.callback(

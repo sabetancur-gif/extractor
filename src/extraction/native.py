@@ -7,6 +7,8 @@ import fitz
 from typing import List, Dict
 from .base import BaseExtractor
 
+from src.extraction.block_classifier import classify_block
+
 
 class NativePDFExtractor(BaseExtractor):
     def __init__(self):
@@ -77,8 +79,34 @@ class NativePDFExtractor(BaseExtractor):
                     block["block_type"] = "header"
                 else:
                     block["block_type"] = "other"
+
+                semantic = classify_block(
+                    block,
+                    page_width=width,
+                    pafe_height=height
+                )
+
+                block.update(
+                    {
+                        "semantic_type": semantic["semantic_type"],
+                        "semantic_confidence": semantic["confidence"],
+                        "semantic_labels": semantic["labels"],
+                        "is_table_like": semantic["is_table_like"],
+                        "is_signature": semantic["is_signature"],
+                        "is_logo": semantic["is_logo"],
+                        "is_image": semantic["is_image"],
+                        "is_address": semantic["is_addres"],
+                        "is_date": semantic["is_date"],
+                        "is_amount": semantic["is_amount"],
+                        "is_phone": semantic["is_phone"],
+                        "is_email": semantic["is_email"],
+                        "is_url": semantic["is_url"],
+                        "is_identifier": semantic["is_identifier"],
+                    }
+                )
+
                 blocks.append(block)
                 order += 1
+
             pages.append({"page_number": pno, "width": width, "height": height, "blocks": blocks})
         return pages
-

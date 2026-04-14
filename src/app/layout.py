@@ -20,6 +20,9 @@ IDs Dash usados (para trazabilidad callbacks/layout):
 from dash import dcc, html
 import dash_bootstrap_components as dbc
 
+from src.app.ui.pdf_analysis_panel import pdf_analysis_panel
+from src.app.ui.llm_analysis_panel import llm_analysis_panel
+
 
 def layout():
     r"""Layout principal de la app Dash.
@@ -35,11 +38,13 @@ def layout():
         dcc.Store(id="sidebar-state", data=True),
 
         dcc.Store(id="llm-context", data={}),
-        dcc.Store(id="analysis-view-state", data={}),
+        dcc.Store(id="analysis-view-state", data={"index": 0, "key": "fields"}),
 
         dcc.Download(id="download-md"),
         dcc.Download(id="download-html"),
         dcc.Download(id="download-visualization"),
+
+        dcc.Store(id="analysis-result-store", data={}),
 
         # === NAVBAR ===
         dbc.Navbar(
@@ -562,177 +567,187 @@ def get_tabs_layout():
         html.Div(
             id="tab-pdf-analysis-content",
             style={"display": "none"},
-            children=[
-
-                dbc.Row([
-
-                    # First column: Advanced Search, Document Selector y Summary doc
-                    dbc.Col([
-
-                        # Nuevo Dropdown para seleccionar documento procesado
-                        dbc.Card([
-                            dbc.CardHeader(
-                                [html.H4("Selecciona documento procesado", className="center-color")],
-                                className="bg-primary"
-                            ),
-                            dbc.CardBody([
-                                dcc.Dropdown(
-                                    id="analysis-doc-selector",
-                                    options=[],  # Se llenará dinámicamente con la lista de documentos procesados
-                                    placeholder="Selecciona el documento para análisis",
-                                    className="mb-2 dropdown-gradient",
-                                    clearable=False,
-                                    multi=False
-                                ),
-                                dbc.Tooltip(
-                                    "Documento a consultar",
-                                    target="analysis-doc-selector",
-                                    placement="top",
-                                    style={"fontSize": "1rem"}
-                                )
-                            ]),
-                        ], className="shadow-lg border-0 mb-3"),
-
-                        dbc.Card([
-                            dbc.CardHeader(
-                                [html.H4("Advanced analysis and search", className="center-color")],
-                                className="bg-primary"
-                            ),
-                            dbc.CardBody([
-                                html.Div([
-                                    html.P("Explore metadata, structure and extracted text.", className="text-info-center"),
-                                ]),
-                                dbc.Input(id="analysis-search-keyword", placeholder="Search for keywords...", type="text", className="mb-2 shadow-sm"),
-                                dbc.Tooltip(
-                                    "Search for any word or keyword extracted from the document.",
-                                    target="analysis-search-keyword",
-                                    placement="top",
-                                    style={"fontSize": "1rem"}
-                                ),
-                                dbc.Select(
-                                    id="analysis-search-field",
-                                    options=[],
-                                    placeholder="Filter by field type",
-                                    className="mb-2 shadow-sm"
-                                ),
-                                dbc.Tooltip(
-                                    "Filter results by field or block type.",
-                                    target="analysis-search-field",
-                                    placement="top",
-                                    style={"fontSize": "1rem"}
-                                ),
-                                dbc.Button("Search", id="analysis-search-btn", color="primary", className="mb-2 w-100 fw-bold shadow-sm"),
-                                dbc.Tooltip(
-                                    "Run an advanced search in the document.",
-                                    target="analysis-search-btn",
-                                    placement="top",
-                                    style={"fontSize": "1rem"}
-                                ),
-                            ]),
-                        ], className="shadow-lg border-0 mb-3"),
-
-                        dbc.Card([
-                            dbc.CardHeader(
-                                [html.H4("Summary of the document", className="center-color")],
-                                className="bg-primary"
-                            ),
-                            dbc.CardBody([
-                                html.Div(id="pdf-summary-output", className="mt-2"),
-                            ]),
-                        ], className="shadow-lg border-0 mb-3"),
-
-                        dbc.Card([
-                            dbc.CardHeader(
-                                [html.H4("Automatic document overview", className="center-color")],
-                                className="bg-primary"
-                            ),
-                            dbc.CardBody([
-                                html.Div(id="pdf-auto-analysis-output", className="mt-2"),
-                            ]),
-                        ], className="shadow-lg border-0 mb-3"),
-
-                    ], md=4),
-
-                    dbc.Col([
-                        html.Div(id="pdf-analysis-output", className="mt-2"),
-                    ], md=8)
-                ]),
-            ]
+            children=[pdf_analysis_panel()],
         ),
+        # html.Div(
+        #     id="tab-pdf-analysis-content",
+        #     style={"display": "none"},
+        #     children=[
+
+        #         dbc.Row([
+
+        #             # First column: Advanced Search, Document Selector y Summary doc
+        #             dbc.Col([
+
+        #                 # Nuevo Dropdown para seleccionar documento procesado
+        #                 dbc.Card([
+        #                     dbc.CardHeader(
+        #                         [html.H4("Selecciona documento procesado", className="center-color")],
+        #                         className="bg-primary"
+        #                     ),
+        #                     dbc.CardBody([
+        #                         dcc.Dropdown(
+        #                             id="analysis-doc-selector",
+        #                             options=[],  # Se llenará dinámicamente con la lista de documentos procesados
+        #                             placeholder="Selecciona el documento para análisis",
+        #                             className="mb-2 dropdown-gradient",
+        #                             clearable=False,
+        #                             multi=False
+        #                         ),
+        #                         dbc.Tooltip(
+        #                             "Documento a consultar",
+        #                             target="analysis-doc-selector",
+        #                             placement="top",
+        #                             style={"fontSize": "1rem"}
+        #                         )
+        #                     ]),
+        #                 ], className="shadow-lg border-0 mb-3"),
+
+        #                 dbc.Card([
+        #                     dbc.CardHeader(
+        #                         [html.H4("Advanced analysis and search", className="center-color")],
+        #                         className="bg-primary"
+        #                     ),
+        #                     dbc.CardBody([
+        #                         html.Div([
+        #                             html.P("Explore metadata, structure and extracted text.", className="text-info-center"),
+        #                         ]),
+        #                         dbc.Input(id="analysis-search-keyword", placeholder="Search for keywords...", type="text", className="mb-2 shadow-sm"),
+        #                         dbc.Tooltip(
+        #                             "Search for any word or keyword extracted from the document.",
+        #                             target="analysis-search-keyword",
+        #                             placement="top",
+        #                             style={"fontSize": "1rem"}
+        #                         ),
+        #                         dbc.Select(
+        #                             id="analysis-search-field",
+        #                             options=[],
+        #                             placeholder="Filter by field type",
+        #                             className="mb-2 shadow-sm"
+        #                         ),
+        #                         dbc.Tooltip(
+        #                             "Filter results by field or block type.",
+        #                             target="analysis-search-field",
+        #                             placement="top",
+        #                             style={"fontSize": "1rem"}
+        #                         ),
+        #                         dbc.Button("Search", id="analysis-search-btn", color="primary", className="mb-2 w-100 fw-bold shadow-sm"),
+        #                         dbc.Tooltip(
+        #                             "Run an advanced search in the document.",
+        #                             target="analysis-search-btn",
+        #                             placement="top",
+        #                             style={"fontSize": "1rem"}
+        #                         ),
+        #                     ]),
+        #                 ], className="shadow-lg border-0 mb-3"),
+
+        #                 dbc.Card([
+        #                     dbc.CardHeader(
+        #                         [html.H4("Summary of the document", className="center-color")],
+        #                         className="bg-primary"
+        #                     ),
+        #                     dbc.CardBody([
+        #                         html.Div(id="pdf-summary-output", className="mt-2"),
+        #                     ]),
+        #                 ], className="shadow-lg border-0 mb-3"),
+
+        #                 dbc.Card([
+        #                     dbc.CardHeader(
+        #                         [html.H4("Automatic document overview", className="center-color")],
+        #                         className="bg-primary"
+        #                     ),
+        #                     dbc.CardBody([
+        #                         html.Div(id="pdf-auto-analysis-output", className="mt-2"),
+        #                     ]),
+        #                 ], className="shadow-lg border-0 mb-3"),
+
+        #             ], md=4),
+
+        #             dbc.Col([
+        #                 html.Div(id="pdf-analysis-output", className="mt-2"),
+        #             ], md=8)
+        #         ]),
+        #     ]
+        # ),
 
         # ==================== TAB 4: LLM ANALYSIS ====================
         html.Div(
             id="tab-llm-analysis-content",
             style={"display": "none"},
-            children=[
-                dbc.Container(
-                    [
-                        dbc.Row(
-                            [
-                                dbc.Col(
-                                    dbc.Card(
-                                        [
-                                            dbc.CardHeader(html.H4("LLM Enrichment", className="center-color")),
-                                            dbc.CardBody(
-                                                [
-                                                    dcc.Dropdown(
-                                                        id="llm-doc-selector",
-                                                        options=[],
-                                                        placeholder="Selecciona el documento",
-                                                        clearable=False,
-                                                        className="mb-2 dropdown-gradient",
-                                                    ),
-                                                    dcc.Dropdown(
-                                                        id="llm-mode",
-                                                        options=[
-                                                            {"label": "Auto fill missing", "value": "auto_fill_missing"},
-                                                            {"label": "Summarize", "value": "summarize"},
-                                                            {"label": "Describe images/tables", "value": "describe_assets"},
-                                                        ],
-                                                        value="auto_fill_missing",
-                                                        clearable=False,
-                                                        className="mb-2 dropdown-gradient",
-                                                    ),
-                                                    dbc.Button(
-                                                        "Run LLM enrichment",
-                                                        id="run-llm-btn",
-                                                        color="primary",
-                                                        className="w-100 fw-bold shadow-sm",
-                                                    ),
-                                                ]
-                                            ),
-                                        ],
-                                        className="shadow-lg border-0 mb-3",
-                                    ),
-                                    md=4,
-                                ),
-                                dbc.Col(
-                                    [
-                                        dbc.Card(
-                                            [
-                                                dbc.CardHeader(html.H5("LLM summary", className="center-color")),
-                                                dbc.CardBody(html.Div(id="llm-summary-output")),
-                                            ],
-                                            className="shadow-lg border-0 mb-3",
-                                        ),
-                                        dbc.Card(
-                                            [
-                                                dbc.CardHeader(html.H5("LLM results", className="center-color")),
-                                                dbc.CardBody(html.Div(id="llm-results-output")),
-                                            ],
-                                            className="shadow-lg border-0 mb-3",
-                                        ),
-                                    ],
-                                    md=8,
-                                ),
-                            ],
-                            className="g-3",
-                        )
-                    ],
-                    fluid=True,
-                )
-            ],
+            children=[llm_analysis_panel()],
         ),
+        # html.Div(
+        #     id="tab-llm-analysis-content",
+        #     style={"display": "none"},
+        #     children=[
+        #         dbc.Container(
+        #             [
+        #                 dbc.Row(
+        #                     [
+        #                         dbc.Col(
+        #                             dbc.Card(
+        #                                 [
+        #                                     dbc.CardHeader(html.H4("LLM Enrichment", className="center-color")),
+        #                                     dbc.CardBody(
+        #                                         [
+        #                                             dcc.Dropdown(
+        #                                                 id="llm-doc-selector",
+        #                                                 options=[],
+        #                                                 placeholder="Selecciona el documento",
+        #                                                 clearable=False,
+        #                                                 className="mb-2 dropdown-gradient",
+        #                                             ),
+        #                                             dcc.Dropdown(
+        #                                                 id="llm-mode",
+        #                                                 options=[
+        #                                                     {"label": "Auto fill missing", "value": "auto_fill_missing"},
+        #                                                     {"label": "Summarize", "value": "summarize"},
+        #                                                     {"label": "Describe images/tables", "value": "describe_assets"},
+        #                                                 ],
+        #                                                 value="auto_fill_missing",
+        #                                                 clearable=False,
+        #                                                 className="mb-2 dropdown-gradient",
+        #                                             ),
+        #                                             dbc.Button(
+        #                                                 "Run LLM enrichment",
+        #                                                 id="run-llm-btn",
+        #                                                 color="primary",
+        #                                                 className="w-100 fw-bold shadow-sm",
+        #                                             ),
+        #                                         ]
+        #                                     ),
+        #                                 ],
+        #                                 className="shadow-lg border-0 mb-3",
+        #                             ),
+        #                             md=4,
+        #                         ),
+        #                         dbc.Col(
+        #                             [
+        #                                 dbc.Card(
+        #                                     [
+        #                                         dbc.CardHeader(html.H5("LLM summary", className="center-color")),
+        #                                         dbc.CardBody(html.Div(id="llm-summary-output")),
+        #                                     ],
+        #                                     className="shadow-lg border-0 mb-3",
+        #                                 ),
+        #                                 dbc.Card(
+        #                                     [
+        #                                         dbc.CardHeader(html.H5("LLM results", className="center-color")),
+        #                                         dbc.CardBody(html.Div(id="llm-results-output")),
+        #                                     ],
+        #                                     className="shadow-lg border-0 mb-3",
+        #                                 ),
+        #                             ],
+        #                             md=8,
+        #                         ),
+        #                     ],
+        #                     className="g-3",
+        #                 )
+        #             ],
+        #             fluid=True,
+        #         )
+        #     ],
+        # ),
 
 
         # html.Div(

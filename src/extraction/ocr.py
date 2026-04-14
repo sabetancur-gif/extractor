@@ -9,6 +9,7 @@ import cv2
 from pathlib import Path
 import os
 
+from src.extraction.block_classifier import classify_block
 # Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -104,6 +105,33 @@ class OCRExtractor(BaseExtractor):
                     block["block_type"] = "header"
                 else:
                     block["block_type"] = "other"
+
+                semantic = classify_block(
+                    block,
+                    page_width=proc.width,
+                    page_height=proc.height
+                )
+
+                block.update(
+                    {
+                        "semantic_type": semantic["semantic_type"],
+                        "semantic_confidence": semantic["confidence"],
+                        "semantic_labels": semantic["labels"],
+                        "is_table_like": semantic["is_table_like"],
+                        "is_signature": semantic["is_signature"],
+                        "is_logo": semantic["is_logo"],
+                        "is_image": semantic["is_image"],
+                        "is_address": semantic["is_address"],
+                        "is_date": semantic["is_date"],
+                        "is_amount": semantic["is_amount"],
+                        "is_phone": semantic["is_phone"],
+                        "is_email": semantic["is_email"],
+                        "is_url": semantic["is_url"],
+                        "is_identifier": semantic["is_identifier"],
+                    }
+                )
+
+
             pages.append({"page_number": pno, "width": proc.width, "height": proc.height, "blocks": blocks})
         if return_images:
             return pages, processed_images

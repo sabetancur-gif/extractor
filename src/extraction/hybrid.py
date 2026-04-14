@@ -5,6 +5,7 @@ from .native import NativePDFExtractor
 from .ocr import OCRExtractor
 from src.utils.geometry import iou_bbox
 
+from src.extraction.block_classifier import classify_block
 
 class HybridExtractor(BaseExtractor):
     """
@@ -121,6 +122,32 @@ class HybridExtractor(BaseExtractor):
                         b["block_type"] = "header"
                     else:
                         b["block_type"] = "other"
+
+                    semantic = classify_block(
+                        b,
+                        page_width=page_w,
+                        page_height=page_h
+                    )
+
+                    b.update(
+                        {
+                            "semantic_type": semantic["semantic_type"],
+                            "semantic_confidence": semantic["confidence"],
+                            "semantic_labels": semantic["labels"],
+                            "is_table_like": semantic["is_table_like"],
+                            "is_signature": semantic["is_signature"],
+                            "is_logo": semantic["is_logo"],
+                            "is_image": semantic["is_image"],
+                            "is_address": semantic["is_address"],
+                            "is_date": semantic["is_date"],
+                            "is_amount": semantic["is_amount"],
+                            "is_phone": semantic["is_phone"],
+                            "is_email": semantic["is_email"],
+                            "is_url": semantic["is_url"],
+                            "is_identifier": semantic["is_identifier"],
+                        }
+                    )
+
                 pages_to_use.append({
                     "page_number": n_page["page_number"],
                     "width": n_page["width"],
