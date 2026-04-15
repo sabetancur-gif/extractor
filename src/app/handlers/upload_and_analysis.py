@@ -88,17 +88,6 @@ def register_callbacks_02(app, controller, embedder=None):
             return dash.no_update
 
     @app.callback(
-        [Output("analysis-doc-selector", "options"),
-         Output("analysis-doc-selector", "value")],
-        Input("upload-store", "data"),
-        prevent_initial_call=True,
-    )
-    def update_analysis_doc_selector(upload_ctx):
-        options = _build_options(_as_list(upload_ctx))
-        value = options[0]["value"] if options else None
-        return options, value
-
-    @app.callback(
         [Output("analysis-target", "options"),
          Output("analysis-target", "value")],
         Input("upload-store", "data"),
@@ -218,18 +207,38 @@ def register_callbacks_02(app, controller, embedder=None):
                         from src.extraction.ocr import OCRExtractor
                         ocr = OCRExtractor(lang="eng", dpi=300, preprocessor=None)
                         pages = ocr.extract(file_path)
+                        if not isinstance(pages, list):
+                            pages = []
                         processing_mode = "ocr"
+                        result_overlays = []
                     else:
                         result = controller.process(file_path, file_name, doc_id, fast_mode=bool(fast_mode))
+                        if not isinstance(result, dict):
+                            result = {}
                         pages = result.get("pages", [])
+                        if not isinstance(pages, list):
+                            pages = []
+                        result_overlays = result.get("overlays") or []
+                        if not isinstance(result_overlays, list):
+                            result_overlays = []
                         processing_mode = "native"
 
                     extracted_fields = []
                     classified_blocks = []
 
                     for p in pages:
+                        if not isinstance(p, dict):
+                            continue
+
                         page_number = p.get("page_number")
-                        for b in p.get("blocks", []):
+                        blocks = p.get("blocks", [])
+                        if not isinstance(blocks, list):
+                            blocks = []
+
+                        for b in blocks:
+                            if not isinstance(b, dict):
+                                continue
+
                             text = b.get("text", "")
                             field_info = extract_fields_from_block(text, text)
 
@@ -247,23 +256,48 @@ def register_callbacks_02(app, controller, embedder=None):
                                 })
 
                     overlays = []
-                    for p in pages:
-                        pn = p.get("page_number")
-                        if pn is None:
-                            continue
 
-                        img_path = storage.page_cache_path(doc_id, pn)
-                        render_page_to_image(file_path, pn, img_path)
+                    if result_overlays:
+                        overlays = result_overlays
+                    else:
+                        for p in pages:
+                            if not isinstance(p, dict):
+                                continue
 
-                        overlay_path = overlay_gen.render_page_overlay(
-                            img_path,
-                            p.get("blocks", []),
-                            doc_id,
-                            pn,
-                            p.get("width"),
-                            p.get("height"),
-                        )
-                        overlays.append({"page": pn, "path": overlay_path})
+                            pn = p.get("page_number")
+                            if pn is None:
+                                continue
+
+                            blocks = p.get("blocks") or []
+                            if not isinstance(blocks, list):
+                                blocks = []
+
+                            try:
+                                img_path = storage.page_cache_path(doc_id, pn)
+                                render_page_to_image(file_path, pn, img_path)
+
+                                overlay_path = overlay_gen.render_page_overlay(
+                                    img_path,
+                                    blocks,
+                                    doc_id,
+                                    pn,
+                                    p.get("width"),
+                                    p.get("height"),
+                                )
+
+                                if overlay_path:
+                                    overlays.append({"page": pn, "path": overlay_path})
+
+                            except Exception as page_err:
+                                log_mgr.log({
+                                    "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                                    "file_id": doc_id,
+                                    "filename": file_name,
+                                    "step": "OVERLAY",
+                                    "status": "error",
+                                    "error_message": str(page_err),
+                                })
+                                continue
 
                     doc_ctx = build_doc_context(
                         doc_id=doc_id,
@@ -295,13 +329,14 @@ def register_callbacks_02(app, controller, embedder=None):
                     return doc_id, doc_ctx
 
                 except Exception as e:
+                    import traceback
                     log_mgr.log({
                         "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
                         "file_id": target.get("doc_id"),
                         "filename": target.get("file_name"),
                         "step": "PROCESS_PDF",
                         "status": "error",
-                        "error_message": str(e),
+                        "error_message": f"{e}\n{traceback.format_exc()}",
                     })
                     return target.get("doc_id"), None
 

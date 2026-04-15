@@ -69,7 +69,7 @@ def register_callbacks(app, controller, embedder=None):
 
     # --- Callback para sincronizar el valor de analysis-target con visualization-pdf-selector ---
     import dash
-    from dash import Input, Output, State, ctx
+    from dash import Input, Output, State
     @app.callback(
         Output("analysis-target", "value", allow_duplicate=True),
         Input("visualization-pdf-selector", "value"),

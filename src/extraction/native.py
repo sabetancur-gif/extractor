@@ -83,7 +83,7 @@ class NativePDFExtractor(BaseExtractor):
                 semantic = classify_block(
                     block,
                     page_width=width,
-                    pafe_height=height
+                    page_height=height
                 )
 
                 block.update(
@@ -95,7 +95,7 @@ class NativePDFExtractor(BaseExtractor):
                         "is_signature": semantic["is_signature"],
                         "is_logo": semantic["is_logo"],
                         "is_image": semantic["is_image"],
-                        "is_address": semantic["is_addres"],
+                        "is_address": semantic["is_address"],
                         "is_date": semantic["is_date"],
                         "is_amount": semantic["is_amount"],
                         "is_phone": semantic["is_phone"],

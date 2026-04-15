@@ -78,8 +78,28 @@ class OverlayGenerator:
         if pdf_width is None or pdf_height is None:
             max_bbox = [0, 0, 0, 0]
             for b in blocks:
-                x0, y0, x1, y1 = b["bbox"]
-                if (x1-x0)*(y1-y0) > (max_bbox[2]-max_bbox[0])*(max_bbox[3] - max_bbox[1]):
+                if not isinstance(b, dict):
+                    continue
+
+                bbox = b.get("bbox")
+
+                if isinstance(bbox, dict):
+                    bbox = [
+                        bbox.get("x0"),
+                        bbox.get("y0"),
+                        bbox.get("x1"),
+                        bbox.get("y1"),
+                    ]
+
+                if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
+                    continue
+
+                if any(v is None for v in bbox[:4]):
+                    continue
+
+                x0, y0, x1, y1 = bbox[:4]
+
+                if (x1 - x0) * (y1 - y0) > (max_bbox[2] - max_bbox[0]) * (max_bbox[3] - max_bbox[1]):
                     max_bbox = [x0, y0, x1, y1]
             pdf_width = max_bbox[2]
             pdf_height = max_bbox[3]
@@ -88,40 +108,51 @@ class OverlayGenerator:
         scale_y = img_height / pdf_height if pdf_height else 1.0
         for b in blocks:
             bbox = b.get("bbox", [])
-            if not bbox or len(bbox) < 4:
+            if isinstance(bbox, dict):
+                bbox = [
+                    bbox.get("x0"),
+                    bbox.get("y0"),
+                    bbox.get("x1"),
+                    bbox.get("y1"),
+                ]
+
+            if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
                 continue
-            
+
+            if any(v is None for v in bbox[:4]):
+                continue
+
             x0, y0, x1, y1 = bbox
             x0 = int(x0 * scale_x)
             y0 = int(y0 * scale_y)
             x1 = int(x1 * scale_x)
             y1 = int(y1 * scale_y)
-            
+
             # Validar y corregir coordenadas si es necesario
             if x0 > x1:
                 x0, x1 = x1, x0
             if y0 > y1:
                 y0, y1 = y1, y0
-            
+
             # Asegurar que las coordenadas están dentro de los límites de la imagen
             x0 = max(0, min(x0, img_width))
             y0 = max(0, min(y0, img_height))
             x1 = max(0, min(x1, img_width))
             y1 = max(0, min(y1, img_height))
-            
+
             # Saltar si el rectángulo es demasiado pequeño o inválido
             if x0 >= x1 or y0 >= y1:
                 continue
-            
+
             color = COLORS.get(
                 b.get("type") or b.get("source"), (255, 255, 255)
             )
-            draw.rectangle([x0, y0, x1, y1], outline=color+(200,), width=2)
+            draw.rectangle([x0, y0, x1, y1], outline=color + (200,), width=2)
             if show_labels:
                 draw.text(
-                    (x0+3, y0+3),
+                    (x0 + 3, y0 + 3),
                     f"{b['block_id']} {b.get('type', '')}",
-                    fill=color+(220,),
+                    fill=color + (220,),
                     font=font
                 )
 

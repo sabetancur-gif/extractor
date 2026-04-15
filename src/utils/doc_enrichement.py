@@ -132,7 +132,7 @@ def enrich_pages(
             }
         )
 
-    return enrich_pages, classified_blocks, fields
+    return enriched_pages, classified_blocks, fields
 
 
 def build_doc_context(
