@@ -18,8 +18,10 @@ from dash import Input, Output, State, dash_table, html
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from src.search.universal_search import search_document
-from src.utils.crop import crop_page_region
-from src.utils.bbox import row_bbox, row_page_number
+# from src.utils.crop import crop_page_region
+# from src.utils.bbox import row_bbox, row_page_number
+# from src.ingest.storage import StorageManager
+# from src.utils.image import render_page_to_image
 
 ANALYSIS_VIEW_ORDER = [
     "fields",
@@ -341,34 +343,7 @@ def register_callbacks_03(app, *_args, **_kwargs):
                 "fontSize": "0.92rem",
                 "padding": "10px",
             },
-            style_header={
-                "fontWeight": "700",
-            },
-        )
-
-        preview = html.Div(
-            id="analysis-selection-preview",
-            children=html.Div(
-                "Selecciona una fila para ver el crop.",
-                className="text-muted",
-            ),
-        )
-
-        json_comp = dbc.Card(
-            [
-                dbc.CardHeader("JSON del documento"),
-                dbc.CardBody(
-                    html.Pre(
-                        json.dumps(selected_ctx, indent=2, ensure_ascii=False)[:14000],
-                        style={
-                            "maxHeight": "420px",
-                            "overflow": "auto",
-                            "whiteSpace": "pre-wrap",
-                        },
-                    )
-                ),
-            ],
-            className="shadow-sm border-0 panel-card mt-3",
+            style_header={"fontWeight": "700"},
         )
 
         table_card = dbc.Card(
@@ -386,17 +361,58 @@ def register_callbacks_03(app, *_args, **_kwargs):
                 ),
                 dbc.CardBody(table),
             ],
-            className="shadow-sm border-0 panel-card",
+            className="shadow-sm border-0 panel-card h-100",
         )
 
-        return dbc.Container(
+        preview_card = dbc.Card(
             [
-                table_card,
-                html.Div(preview, className="mt-3"),
-                json_comp,
+                dbc.CardHeader(
+                    html.Div(
+                        [
+                            html.H5("Crop seleccionado", className="mb-0"),
+                            html.Small(
+                                "Selecciona una fila para ver el recorte",
+                                className="text-muted",
+                            ),
+                        ]
+                    )
+                ),
+                dbc.CardBody(
+                    html.Div(
+                        id="analysis-selection-preview",
+                        children=dbc.Alert(
+                            "Selecciona una fila para ver el crop.",
+                            color="secondary",
+                            className="mb-0",
+                        ),
+                    )
+                ),
             ],
-            fluid=True,
-            className="p-0",
+            className="shadow-sm border-0 panel-card h-100",
+        )
+
+        json_card = dbc.Card(
+            [
+                dbc.CardHeader("JSON del documento"),
+                dbc.CardBody(
+                    html.Pre(
+                        json.dumps(selected_ctx, indent=2, ensure_ascii=False)[:14000],
+                        style={
+                            "maxHeight": "420px",
+                            "overflow": "auto",
+                            "whiteSpace": "pre-wrap",
+                        },
+                    )
+                ),
+            ],
+            className="shadow-sm border-0 panel-card mt-3",
+        )
+
+        return dbc.Row(
+            [
+                dbc.Col([table_card, preview_card, json_card], className="mb-3 mb-md-0"),
+            ],
+            className="g-3 align-items-start",
         )
 
     # ===== AUTO-UPDATE PDF ANALYSIS cuando cambia doc-context =====
@@ -475,3 +491,70 @@ def register_callbacks_03(app, *_args, **_kwargs):
             content.append(html.Small("No blocks detected", className="text-muted"))
 
         return content
+
+    # @app.callback(
+    #     Output("analysis-selection-preview", "children"),
+    #     Input("analysis-datatable", "selected_rows"),
+    #     State("analysis-datatable", "data"),
+    #     State("analysis-result-store", "data"),
+    #     State("doc-context", "data"),
+    #     prevent_initial_call=True,
+    # )
+    # def render_analysis_selection_preview(selected_rows, rows, result_store, doc_ctx):
+    #     if not selected_rows or not rows or not isinstance(result_store, dict) or not isinstance(doc_ctx, dict):
+    #         raise PreventUpdate
+
+    #     idx = selected_rows[0]
+    #     if idx < 0 or idx >= len(rows):
+    #         raise PreventUpdate
+
+    #     row = rows[idx]
+    #     doc_id = result_store.get("doc_id")
+    #     selected_ctx = doc_ctx.get(doc_id)
+    #     if not isinstance(selected_ctx, dict):
+    #         raise PreventUpdate
+
+    #     page_number = row_page_number(row)
+    #     if page_number is None:
+    #         return dbc.Alert("La fila seleccionada no tiene página asociada.", color="warning")
+
+    #     bbox = row_bbox(row)
+    #     if bbox is None:
+    #         raw_bbox = row.get("bbox")
+    #         if isinstance(raw_bbox, str):
+    #             try:
+    #                 raw_bbox = json.loads(raw_bbox)
+    #             except Exception:
+    #                 raw_bbox = None
+    #         bbox = raw_bbox
+
+    #     if bbox is None:
+    #         return dbc.Alert("La fila seleccionada no tiene bbox utilizable.", color="warning")
+
+    #     storage = StorageManager()
+    #     page_path = storage.page_cache_path(doc_id, page_number)
+
+    #     if not os.path.exists(page_path):
+    #         file_path = selected_ctx.get("file_path")
+    #         if file_path:
+    #             render_page_to_image(file_path, page_number, page_path)
+
+    #     crop_src = crop_page_region(page_path, bbox)
+    #     if not crop_src:
+    #         return dbc.Alert("No se pudo generar el crop.", color="warning")
+
+    #     return html.Div(
+    #         [
+    #             html.Img(src=crop_src, className="img-fluid rounded border mb-3"),
+    #             html.Hr(),
+    #             html.Pre(
+    #                 json.dumps(row, indent=2, ensure_ascii=False),
+    #                 style={
+    #                     "maxHeight": "260px",
+    #                     "overflow": "auto",
+    #                     "whiteSpace": "pre-wrap",
+    #                     "marginBottom": 0,
+    #                 },
+    #             ),
+    #         ]
+    #     )

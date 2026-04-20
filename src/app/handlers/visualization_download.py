@@ -22,7 +22,8 @@ def register_callbacks_01(app, controller, embedder=None):
             Output("tab-format-conversion-content", "style"),
             Output("tab-translation-content", "style"),
             Output("tab-toc-extraction-content", "style"),
-            Output("tab-clustering-content", "style")
+            Output("tab-clustering-content", "style"),
+            Output("tab-llm-analysis-content", "style"),
         ],
         [
             Input("sidebar-tabs", "active_tab")
@@ -37,7 +38,8 @@ def register_callbacks_01(app, controller, embedder=None):
             "tab-format-conversion",
             "tab-translation",
             "tab-toc-extraction",
-            "tab-clustering"
+            "tab-clustering",
+            "tab-llm-analysis",
         ]
 
         styles = [

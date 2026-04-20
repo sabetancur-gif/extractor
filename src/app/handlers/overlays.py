@@ -43,30 +43,45 @@ def register_callbacks_13(app, controller, embedder=None):
     @app.callback(
         Output("analysis-selection-preview", "children"),
         Input("analysis-datatable", "active_cell"),
+        Input("analysis-datatable", "selected_rows"),
         State("analysis-datatable", "derived_viewport_data"),
+        State("analysis-datatable", "derived_virtual_data"),
         State("doc-context", "data"),
         prevent_initial_call=True,
     )
-    def preview_selected_row(active_cell, view_data, doc_ctx):
+    def preview_selected_row(active_cell, selected_rows, viewport_data, virtual_data, doc_ctx):
         if not doc_ctx:
             raise dash.exceptions.PreventUpdate
 
-        if not active_cell or not view_data:
+        view_data = viewport_data or virtual_data or []
+        if not view_data:
             raise dash.exceptions.PreventUpdate
 
-        row_idx = active_cell.get("row")
-        if row_idx is None or row_idx >= len(view_data):
+        row_idx = None
+        if active_cell and isinstance(active_cell, dict):
+            row_idx = active_cell.get("row")
+        elif selected_rows:
+            row_idx = selected_rows[0]
+
+        if row_idx is None:
             raise dash.exceptions.PreventUpdate
+
+        if row_idx < 0 or row_idx >= len(view_data):
+            if selected_rows and virtual_data and 0 <= row_idx < len(virtual_data):
+                view_data = virtual_data
+            else:
+                raise dash.exceptions.PreventUpdate
 
         row = view_data[row_idx]
+
         bbox = row_bbox(row)
         page_number = row_page_number(row)
 
         def _recover_bbox_from_doc_context():
-            block_id = row.get("block_id")
+            block_id = row.get("block_id") or row.get("id")
             text = (row.get("text") or row.get("value") or row.get("field_value") or "").strip()
-
             pages = doc_ctx.get("pages", []) or []
+
             for page in pages:
                 current_page_number = normalize_page_number(page.get("page_number"))
                 if page_number is not None and current_page_number != page_number:
@@ -85,14 +100,26 @@ def register_callbacks_13(app, controller, embedder=None):
 
         overlays = doc_ctx.get("overlays", []) or []
         overlay = find_overlay_for_page(overlays, page_number)
-
         page_image = ""
         if overlay:
             page_image = overlay.get("path") or overlay.get("image") or ""
 
         crop_src = crop_page_region(page_image, bbox) if page_image and bbox else ""
 
-        title = row.get("field") or row.get("semantic_type") or row.get("block_type") or "Selected item"
+        title = (
+            row.get("field")
+            or row.get("semantic_type")
+            or row.get("block_type")
+            or row.get("kind")
+            or "Selected item"
+        )
+
+        snippet = (
+            row.get("text", "")
+            or row.get("value", "")
+            or row.get("field_value", "")
+            or ""
+        )
 
         details = dbc.Card(
             dbc.CardBody(
@@ -101,12 +128,7 @@ def register_callbacks_13(app, controller, embedder=None):
                         [
                             html.H5(title, className="mb-1"),
                             html.Div(f"Page: {page_number}", className="text-muted"),
-                            html.Div(
-                                row.get("text", "")[:500]
-                                or row.get("value", "")[:500]
-                                or row.get("field_value", "")[:500],
-                                className="mt-2",
-                            ),
+                            html.Div(snippet[:500], className="mt-2"),
                         ]
                     ),
                     html.Hr(),
@@ -146,6 +168,112 @@ def register_callbacks_13(app, controller, embedder=None):
         )
 
         return details
+    # @app.callback(
+    #     Output("analysis-selection-preview", "children"),
+    #     Input("analysis-datatable", "active_cell"),
+    #     State("analysis-datatable", "derived_viewport_data"),
+    #     State("doc-context", "data"),
+    #     prevent_initial_call=True,
+    # )
+    # def preview_selected_row(active_cell, view_data, doc_ctx):
+    #     if not doc_ctx:
+    #         raise dash.exceptions.PreventUpdate
+
+    #     if not active_cell or not view_data:
+    #         raise dash.exceptions.PreventUpdate
+
+    #     row_idx = active_cell.get("row")
+    #     if row_idx is None or row_idx >= len(view_data):
+    #         raise dash.exceptions.PreventUpdate
+
+    #     row = view_data[row_idx]
+    #     bbox = row_bbox(row)
+    #     page_number = row_page_number(row)
+
+    #     def _recover_bbox_from_doc_context():
+    #         block_id = row.get("block_id")
+    #         text = (row.get("text") or row.get("value") or row.get("field_value") or "").strip()
+
+    #         pages = doc_ctx.get("pages", []) or []
+    #         for page in pages:
+    #             current_page_number = normalize_page_number(page.get("page_number"))
+    #             if page_number is not None and current_page_number != page_number:
+    #                 continue
+
+    #             for block in page.get("blocks", []) or []:
+    #                 if block_id and block.get("block_id") == block_id:
+    #                     return row_bbox(block), current_page_number
+    #                 if text and (block.get("text") or "").strip() == text:
+    #                     return row_bbox(block), current_page_number
+
+    #         return None, page_number
+
+    #     if bbox is None:
+    #         bbox, page_number = _recover_bbox_from_doc_context()
+
+    #     overlays = doc_ctx.get("overlays", []) or []
+    #     overlay = find_overlay_for_page(overlays, page_number)
+
+    #     page_image = ""
+    #     if overlay:
+    #         page_image = overlay.get("path") or overlay.get("image") or ""
+
+    #     crop_src = crop_page_region(page_image, bbox) if page_image and bbox else ""
+
+    #     title = row.get("field") or row.get("semantic_type") or row.get("block_type") or "Selected item"
+
+    #     details = dbc.Card(
+    #         dbc.CardBody(
+    #             [
+    #                 html.Div(
+    #                     [
+    #                         html.H5(title, className="mb-1"),
+    #                         html.Div(f"Page: {page_number}", className="text-muted"),
+    #                         html.Div(
+    #                             row.get("text", "")[:500]
+    #                             or row.get("value", "")[:500]
+    #                             or row.get("field_value", "")[:500],
+    #                             className="mt-2",
+    #                         ),
+    #                     ]
+    #                 ),
+    #                 html.Hr(),
+    #                 html.Div(
+    #                     [
+    #                         html.Small("BBox", className="text-muted d-block"),
+    #                         html.Code(str(bbox) if bbox else "bbox unavailable"),
+    #                     ]
+    #                 ),
+    #                 html.Div(
+    #                     [
+    #                         html.Small("Source", className="text-muted d-block mt-2"),
+    #                         html.Code(str(row.get("source", "unknown"))),
+    #                     ]
+    #                 ),
+    #                 html.Hr(),
+    #                 html.Div(
+    #                     html.Img(
+    #                         src=crop_src,
+    #                         style={"width": "100%", "height": "auto", "borderRadius": "12px"},
+    #                     )
+    #                     if crop_src
+    #                     else html.Div(
+    #                         [
+    #                             html.Div("No crop available.", className="fw-semibold"),
+    #                             html.Div(
+    #                                 "The row did not include a usable bbox or the page image was not found.",
+    #                                 className="text-muted small",
+    #                             ),
+    #                         ],
+    #                         className="text-center py-4",
+    #                     )
+    #                 ),
+    #             ]
+    #         ),
+    #         className="shadow-sm border-0 analysis-preview-card",
+    #     )
+
+    #     return details
     # @app.callback(
     #     Output("analysis-selection-preview", "children"),
     #     Input("analysis-fields-datatable", "active_cell"),

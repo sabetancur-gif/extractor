@@ -1,5 +1,5 @@
 # src/app/layout.py
-r"""Construcción del layout principal (Marcado y etiquetas ).
+r"""Construcción del layout principal (Marcado y etiquetas).
 
 Define el layout principal de la app Dash (Navbar, Sidebar, Tabs, Stores, etc).
 Expone la función layout() y get_tabs_layout().

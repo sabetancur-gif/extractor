@@ -252,7 +252,17 @@ def register_callbacks_02(app, controller, embedder=None):
                                     "field": field_info["field"],
                                     "value": field_info["value"],
                                     "page": page_number,
+                                    "page_number": page_number,
                                     "confidence": b.get("confidence"),
+                                    "bbox": b.get("bbox"),
+                                    "block_id": b.get("block_id"),
+                                    "text": text,
+                                    "semantic_type": field_info["field"],
+                                    "source": {
+                                        **b,
+                                        "detected_field": field_info["field"],
+                                        "detected_value": field_info["value"],
+                                    },
                                 })
 
                     overlays = []

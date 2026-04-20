@@ -149,7 +149,7 @@ def pdf_analysis_panel() -> dbc.Container:
                         md=8,
                     ),
                 ],
-                className="g-4 align-items-start",
+                className="align-items-start",
             )
         ],
         fluid=True,
