@@ -137,6 +137,15 @@ def pdf_analysis_panel() -> dbc.Container:
                                     ),
                                     dbc.CardBody(
                                         [
+                                            dbc.Card(
+                                                [
+                                                    dbc.CardHeader(html.H5("Resumen automático", className="mb-0")),
+                                                    dbc.CardBody(
+                                                        html.Div(id="pdf-auto-analysis-output")
+                                                    ),
+                                                ],
+                                                className="shadow-sm border-0 panel-card mb-3",
+                                            ),
                                             html.Div(id="pdf-summary-output"),
                                             html.Hr(className="my-3"),
                                             html.Div(id="pdf-analysis-output"),

@@ -34,6 +34,7 @@ class NullLLMClient(BaseLLMClient):
             ensure_ascii=False,
         )
 
+
 class OllamaClient(BaseLLMClient):
     def __init__(self, config: LLMConfig | None = None):
         self.config = config or LLMConfig()

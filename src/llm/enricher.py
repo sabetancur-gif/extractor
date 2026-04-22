@@ -37,6 +37,7 @@ def _normalize_name(value: Any) -> str:
     text = _safe_text(value).strip().lower()
     return re.sub(r"[^a-z0-9]+", "", text)
 
+
 def _normalize_suggestion(suggestion: dict[str, Any]) -> dict[str, Any] | None:
     if not isinstance(suggestion, dict):
         return None
@@ -69,19 +70,32 @@ def _normalize_suggestion(suggestion: dict[str, Any]) -> dict[str, Any] | None:
 def _extract_json(text: Any) -> dict[str, Any]:
     if isinstance(text, dict):
         return text  # ya está parseado
+
     text = (text or "").strip()
     if not text:
         return {}
+
     try:
         return json.loads(text)
     except Exception:
         pass
-    matches = _JSON_BLOCK_RE.findall(text)
-    for candidate in matches:
+
+    fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)```", text, flags=re.IGNORECASE)
+    for candidate in fenced:
         try:
-            return json.loads(candidate)
+            return json.loads(candidate.strip())
         except Exception:
-            continue
+            pass
+
+    start = text.find("{")
+    end = text.rfind("}")
+
+    if 0 <= start < end:
+        try:
+            return json.loads(text[start:end + 1])
+        except Exception:
+            pass
+
     return {}
 
 
@@ -129,7 +143,7 @@ class LLMEnricher:
 
         if isinstance(parsed, dict):
             # suggestions = parsed.get("fill_suggestions", [])
-            suggestions = parsed.get("fill_suggestions", []) or parsed.get("llm_applied_changes", [])
+            suggestions = parsed.get("fill_suggestions") or parsed.get("llm_applied_changes") or []
             if isinstance(suggestions, list):
                 # Apply only low-risk fills
                 fields = base.get("fields", [])

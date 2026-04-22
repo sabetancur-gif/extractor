@@ -6,9 +6,7 @@ Callbacks para búsqueda avanzada y análisis de texto en el documento.
 """
 
 # STDLIB
-import difflib
 import json
-import re
 import os
 
 # THIRDPARTY
@@ -45,10 +43,12 @@ ANALYSIS_VIEW_META = {
     "addresses": {"label": "Direcciones", "icon": "bi-geo-alt"},
 }
 
+
 def _safe_cell_value(value):
     if isinstance(value, (dict, list, tuple)):
         return json.dumps(value, ensure_ascii=False)
     return value
+
 
 def _current_view_key(view_state: dict | None) -> str:
     if not isinstance(view_state, dict):
@@ -62,9 +62,10 @@ def _current_view_key(view_state: dict | None) -> str:
     except Exception:
         return "fields"
 
+
 def _build_analysis_rows(doc_ctx: dict, matches: list[dict], view_key: str) -> list[dict]:
     blocks = doc_ctx.get("classified_blocks", []) or []
-    fields = doc_ctx.get("fields", []) or []
+    fields = doc_ctx.get("fields", []) or []  # noqa: F841
 
     if view_key == "fields":
         rows = []
@@ -77,6 +78,7 @@ def _build_analysis_rows(doc_ctx: dict, matches: list[dict], view_key: str) -> l
                     "value": item.get("value"),
                     "page_number": item.get("page_number", item.get("page")),
                     "bbox": _safe_cell_value(item.get("bbox")),
+                    "bbox_raw": json.dumps(item.get("bbox")) if item.get("bbox") else None,
                     "block_id": item.get("block_id"),
                     # "source": item.get("source"),
                     "source": (
@@ -103,6 +105,7 @@ def _build_analysis_rows(doc_ctx: dict, matches: list[dict], view_key: str) -> l
                     "text": item.get("text", ""),
                     "page_number": item.get("page_number", item.get("page")),
                     "bbox": _safe_cell_value(item.get("bbox")),
+                    "bbox_raw": json.dumps(item.get("bbox")) if item.get("bbox") else None,
                     "block_id": item.get("block_id"),
                     # "source": item.get("source"),
                     "source": (
@@ -126,6 +129,7 @@ def _build_analysis_rows(doc_ctx: dict, matches: list[dict], view_key: str) -> l
                         "text": block.get("text", ""),
                         "page_number": block.get("page_number", block.get("page")),
                         "bbox": _safe_cell_value(block.get("bbox")),
+                        "bbox_raw": json.dumps(block.get("bbox")) if block.get("bbox") else None,
                         "block_id": block.get("block_id"),
                         # "source": item.get("source"),
                         "source": _safe_cell_value(block.get("source")),

@@ -95,7 +95,7 @@ def register_callbacks_02(app, controller, embedder=None):
     )
     def update_analysis_target(upload_ctx):
         options = _build_options(_as_list(upload_ctx))
-        value = [opt["value"] for opt in options] if options else None
+        value = options[0]["value"] if options else None
         return options, value
 
     @app.callback(
@@ -203,25 +203,30 @@ def register_callbacks_02(app, controller, embedder=None):
                     file_name = target["file_name"]
                     pdf_type = target.get("pdf_type")
 
-                    if pdf_type == "scanned":
-                        from src.extraction.ocr import OCRExtractor
-                        ocr = OCRExtractor(lang="eng", dpi=300, preprocessor=None)
-                        pages = ocr.extract(file_path)
-                        if not isinstance(pages, list):
-                            pages = []
-                        processing_mode = "ocr"
+                    result = controller.process(file_path, file_name, doc_id, fast_mode=bool(fast_mode))
+                    if not isinstance(result, dict):
+                        result = {}
+                    # if pdf_type == "scanned":
+                    #     from src.extraction.ocr import OCRExtractor
+                    #     ocr = OCRExtractor(lang="eng", dpi=300, preprocessor=None)
+                    #     pages = ocr.extract(file_path)
+                    #     if not isinstance(pages, list):
+                    #         pages = []
+                    #     processing_mode = "ocr"
+                    #     result_overlays = []
+                    # else:
+                    #     result = controller.process(file_path, file_name, doc_id, fast_mode=bool(fast_mode))
+                    #     if not isinstance(result, dict):
+                    #         result = {}
+                    pages = result.get("pages", []) or []
+                    if not isinstance(pages, list):
+                        pages = []
+
+                    result_overlays = result.get("overlays", []) or []
+                    if not isinstance(result_overlays, list):
                         result_overlays = []
-                    else:
-                        result = controller.process(file_path, file_name, doc_id, fast_mode=bool(fast_mode))
-                        if not isinstance(result, dict):
-                            result = {}
-                        pages = result.get("pages", [])
-                        if not isinstance(pages, list):
-                            pages = []
-                        result_overlays = result.get("overlays") or []
-                        if not isinstance(result_overlays, list):
-                            result_overlays = []
-                        processing_mode = "native"
+
+                    processing_mode = result.get("processing_modee") or ("ocr" if pdf_type == "scanned" else "native")
 
                     extracted_fields = []
                     classified_blocks = []

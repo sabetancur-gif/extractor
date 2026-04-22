@@ -1,7 +1,7 @@
 # src/llm/prompts.py
 from __future__ import annotations
 
-import json 
+import json
 from typing import Any
 
 
@@ -31,19 +31,22 @@ The JSON MUST have this structure:
   "llm_raw_response": string
 }
 
-You must return ONLY valid JSON. 
+You must return ONLY valid JSON.
 Do not include explanations, markdown, code fences, or text outside the JSON object.
-If you cannot infer values, return an empty array for llm_applied_changes.
+If you cannot infer values, return an empty array for fill_suggestions.
 """
+
 
 def _is_missing_value(value: Any) -> bool:
     return value in (None, "", [], {})
+
 
 def _is_low_confidence(field: dict[str, Any], threshold: float = 0.4) -> bool:
     try:
         return float(field.get("confidence", 1.0) or 1.0) < threshold
     except Exception:
         return True
+
 
 def _candidate_fields(doc_ctx: dict[str, Any]) -> list[dict[str, Any]]:
     candidates = []
@@ -63,6 +66,7 @@ def _candidate_fields(doc_ctx: dict[str, Any]) -> list[dict[str, Any]]:
                 "source": field.get("source"),
             })
     return candidates
+
 
 def build_enrichment_prompt(doc_ctx: dict[str, Any], mode: str = "auto_fill_missing") -> str:
     payload = {
