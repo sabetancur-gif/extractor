@@ -69,39 +69,61 @@ def classify_field(text: str, context: str = "") -> Optional[Dict]:
 
 def extract_fields_from_block(text: str, context: str = "") -> Optional[Dict]:
     """
-    Extrae y clasifica todos los campos relevantes de un bloque de texto.
-    Devuelve un dict con el campo principal y una lista de todos los campos detectados.
+    Extrae TODOS los campos relevantes de un bloque.
+    Retorna el campo de mayor score y la lista completa.
     """
+    if not text or not text.strip():
+        return None
+    
     results = []
-    ctx = context.lower()
-    # Teléfonos
+    ctx = context.lower() if context else text.lower()
+
+    # Teléfonos — usar finditer (no fullmatch)
     for pat in PHONE_PATTERNS:
         for m in pat.finditer(text):
-            val = m.group(1)
-            if 8 <= len(re.sub(r"\D", "", val)) <= 11:
+            val = m.group(0)
+            digits = re.sub(r"\D", "", val)
+            if 7 <= len(digits) <= 15:
                 score = 2 if any(k in ctx for k in PHONE_CONTEXT) else 1
-                results.append({"field": "phone", "value": val, "score": score})
+                results.append({"field": "phone", "value": val.strip(), "score": score})
+
     # Correos
     for m in EMAIL_PATTERN.finditer(text):
         score = 2 if any(k in ctx for k in EMAIL_CONTEXT) else 1
         results.append({"field": "email", "value": m.group(0), "score": score})
+
     # Fechas
     for pat in DATE_PATTERNS:
         for m in pat.finditer(text):
             score = 2 if any(k in ctx for k in DATE_CONTEXT) else 1
             results.append({"field": "date", "value": m.group(0), "score": score})
-    # Montos
+
+    # Montos — require keywords cercanos o símbolo de moneda para evitar falsos positivos
     for m in AMOUNT_PATTERN.finditer(text):
-        score = 2 if any(k in ctx for k in AMOUNT_CONTEXT) else 1
-        results.append({"field": "amount", "value": m.group(0), "score": score})
+        val = m.group(0)
+        has_currency_symbol = bool(re.search(r"[\$€£]|COP|USD|EUR", text[max(0,m.start()-10):m.end()+5]))
+        score_base = 2 if any(k in ctx for k in AMOUNT_CONTEXT) else (1 if has_currency_symbol else 0)
+        if score_base > 0:
+            results.append({"field": "amount", "value": val, "score": score_base})
+
     # Identificadores
     for pat in ID_PATTERNS:
         for m in pat.finditer(text):
             score = 2 if any(k in ctx for k in ID_CONTEXT) else 1
             results.append({"field": "identifier", "value": m.group(0), "score": score})
+
+    # Texto libre — siempre agregar el texto del bloque como campo "text"
+    clean = text.strip()
+    if clean and len(clean) > 3:
+        results.append({"field": "text", "value": clean, "score": 0})
+
     if not results:
         return None
-    # Prioriza por score y orden de aparición
+
     results = sorted(results, key=lambda x: (-x["score"]))
     main = results[0]
-    return {"field": main["field"], "value": main["value"], "all_fields": [{"field": r["field"], "value": r["value"]} for r in results]}
+    return {
+        "field": main["field"],
+        "value": main["value"],
+        "all_fields": [{"field": r["field"], "value": r["value"]} for r in results],
+    }

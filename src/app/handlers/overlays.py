@@ -2,19 +2,17 @@
 """
 Callbacks para overlays y preview de bloques en la visualización.
 """
-
 # STDLIB
 import os
-
 # THIRDPARTY
 import dash
 from dash import Input, Output, State, html
 import json
-
 from src.logs.logger import LogManager
 from src.utils.crop import crop_page_region
 from src.utils.bbox import row_bbox, row_page_number, find_overlay_for_page, normalize_page_number
 import dash_bootstrap_components as dbc
+
 
 def _overlay_image_path(overlay):
     if not overlay:
@@ -25,22 +23,21 @@ def _overlay_image_path(overlay):
             return value
     return ""
 
+
 def _to_init_page(value):
     try:
         return int(value) if value is not None else None
     except Exception:
         return None
 
+
 def register_callbacks_13(app, controller, embedder=None):
     """Registra callbacks para overlays y preview de bloques en la visualización.
-
     Relacionado con IDs: pdf-overlay-img, pdf-overlay-layer, blocks-datatable, doc-context.
     """
     log_mgr = LogManager()  # noqa: F841
-
     # STDLIB
     from urllib.parse import quote
-
     # THIRDPARTY
     import flask
 
@@ -48,10 +45,8 @@ def register_callbacks_13(app, controller, embedder=None):
     OVERLAY_DIR = os.path.abspath("data/cache")
 
     # === Ruta Flask para servir overlays ===
-    # OJO: usar <path:filename> (no HTML escapado)
     @app.server.route("/overlays/<path:filename>")
     def serve_overlay(filename):
-        # Seguridad mínima: solo sirve dentro de OVERLAY_DIR
         return flask.send_from_directory(OVERLAY_DIR, filename)
 
     @app.callback(
@@ -76,7 +71,6 @@ def register_callbacks_13(app, controller, embedder=None):
             row_idx = active_cell.get("row")
         elif selected_rows:
             row_idx = selected_rows[0]
-
         if row_idx is None:
             raise dash.exceptions.PreventUpdate
 
@@ -87,11 +81,17 @@ def register_callbacks_13(app, controller, embedder=None):
                 raise dash.exceptions.PreventUpdate
 
         row = view_data[row_idx]
-        # bbox = row_bbox(row)
-        row = view_data[row_idx]
 
+        # ✅ Extraer el ctx del documento activo (multi-doc)
+        first_ctx = next(iter(doc_ctx.values()), {}) if isinstance(doc_ctx, dict) else {}
+        # Si hay un active_doc_id disponible (pasarlo como State), usarlo:
+        # active_ctx = doc_ctx.get(active_doc_id, first_ctx)
+        active_ctx = first_ctx
+        overlays = active_ctx.get("overlays", []) or []
+        pages    = active_ctx.get("pages", []) or []
+
+        # --- bbox ---
         bbox_raw = row.get("bbox_raw")
-
         if isinstance(bbox_raw, str):
             try:
                 bbox = json.loads(bbox_raw)
@@ -100,45 +100,31 @@ def register_callbacks_13(app, controller, embedder=None):
         else:
             bbox = bbox_raw
         bbox = bbox or row_bbox(row)
-        page_number = row_page_number(row)
+
+        page_number = _to_init_page(row_page_number(row))
 
         def _recover_bbox_from_doc_context():
             block_id = row.get("block_id") or row.get("id")
             text = (row.get("text") or row.get("value") or row.get("field_value") or "").strip()
-            pages = doc_ctx.get("pages", []) or []
-
             for page in pages:
                 current_page_number = normalize_page_number(page.get("page_number"))
                 if page_number is not None and current_page_number != page_number:
                     continue
-
                 for block in page.get("blocks", []) or []:
                     if block_id and block.get("block_id") == block_id:
                         return row_bbox(block), current_page_number
                     if text and (block.get("text") or "").strip() == text:
                         return row_bbox(block), current_page_number
-
             return None, page_number
-
-        if bbox is None:
-            bbox, page_number = _recover_bbox_from_doc_context()
-
-        overlays = doc_ctx.get("overlays", []) or []
-
-        row = view_data[row_idx]
-
-        bbox = row.get("bbox_raw") or row_bbox(row)
-        page_number = _to_init_page(row_page_number(row))
 
         if bbox is None:
             bbox, page_number = _recover_bbox_from_doc_context()
             page_number = _to_init_page(page_number)
 
         overlay = find_overlay_for_page(overlays, page_number)
-
         if not overlay and page_number is not None:
             candidates = {page_number, page_number - 1, page_number + 1}
-            for ov in overlays or []:
+            for ov in overlays:
                 ov_page = _to_init_page(
                     ov.get("page_number") or ov.get("page") or ov.get("page_index")
                 )
@@ -156,7 +142,6 @@ def register_callbacks_13(app, controller, embedder=None):
             row.get("kind") or
             "Selected item"
         )
-
         snippet = (
             row.get("text", "") or
             row.get("value", "") or
@@ -222,29 +207,27 @@ def register_callbacks_13(app, controller, embedder=None):
     @app.callback(
         Output("pdf-overlay-img", "src"),
         Output("pdf-overlay-layer", "children"),
-        # Si quieres escuchar SOLO a la tabla principal de Bloques:
         Input("blocks-datatable", "active_cell"),
         State("blocks-datatable", "derived_viewport_data"),
         State("doc-context", "data"),
-        prevent_initial_call=True
+        prevent_initial_call=True,
     )
     def show_block_preview(active_cell, viewport_data, doc_ctx):
-
         if not active_cell or not doc_ctx:
             raise dash.exceptions.PreventUpdate
 
-        # Obtén la fila activa
         row_idx = active_cell.get("row")
         if row_idx is None or not isinstance(viewport_data, list) or row_idx >= len(viewport_data):
             raise dash.exceptions.PreventUpdate
 
         row = viewport_data[row_idx]
 
-        # ========== Selección de página ==========
-        overlays = doc_ctx.get("overlays") or []
-        img_src = ""
+        # ✅ Extraer el ctx del documento activo (multi-doc)
+        first_ctx  = next(iter(doc_ctx.values()), {}) if isinstance(doc_ctx, dict) else {}
+        overlays   = first_ctx.get("overlays") or []
+        pages_info = first_ctx.get("pages", [])
 
-        # 1) Normaliza el número de página que viene del bloque
+        # ========== Selección de página ==========
         raw_page = row.get("page", row.get("page_index"))
         page_num = None
         if raw_page is not None:
@@ -256,7 +239,6 @@ def register_callbacks_13(app, controller, embedder=None):
                 except Exception:
                     page_num = None
 
-        # 2) Helper para normalizar ints en overlays
         def norm_page_val(v):
             if v is None:
                 return None
@@ -268,32 +250,25 @@ def register_callbacks_13(app, controller, embedder=None):
                 except Exception:
                     return None
 
-        # 3) Intenta encontrar el overlay por página (soporta 0/1-based y tipos)
         def try_find_overlay(_overlays, target_page):
             if target_page is None:
                 return None
-
-            # a) Match directo
             for ov in _overlays:
-                op = norm_page_val(ov.get("page"))
-                opi = norm_page_val(ov.get("page_index"))  # <-- FIX: get, no "ger"
+                op  = norm_page_val(ov.get("page"))
+                opi = norm_page_val(ov.get("page_index"))
                 if op == target_page or opi == target_page:
                     return ov
-
-            # b) Prueba ±1 por desface 0/1-based
             for delta in (-1, 1):
                 alt = target_page + delta
                 for ov in _overlays:
-                    op = norm_page_val(ov.get("page"))
+                    op  = norm_page_val(ov.get("page"))
                     opi = norm_page_val(ov.get("page_index"))
                     if op == alt or opi == alt:
                         return ov
-
             return None
 
         ov = try_find_overlay(overlays, page_num)
         if ov is None and overlays:
-            # Último recurso: índice directo si parece válido, si no primera página
             if page_num is not None and 0 <= page_num < len(overlays):
                 ov = overlays[page_num]
             else:
@@ -305,34 +280,26 @@ def register_callbacks_13(app, controller, embedder=None):
         def make_overlay_url(path: str) -> str:
             if not path:
                 return ""
-
-            # 0) Si ya es URL servida, úsala tal cual
-            if isinstance(path, str) and (path.startswith("/overlays/") or path.startswith("/assets/") or path.startswith("http://") or path.startswith("https://")):
+            if isinstance(path, str) and (
+                path.startswith("/overlays/")
+                or path.startswith("/assets/")
+                or path.startswith("http://")
+                or path.startswith("https://")
+            ):
                 return path
-
-            # 1) Intenta resolver absoluto y verificar que esté bajo OVERLAY_DIR
             abs_path = os.path.abspath(path)
             base = os.path.abspath(OVERLAY_DIR)
-
-            # 2) Si la ruta cae bajo OVERLAY_DIR, mapea a /overlays/<rel>
-            #    (ej: base/UUID/overlay_p1.png -> /overlays/UUID/overlay_p1.png)
             try:
                 if abs_path.startswith(base):
                     rel = os.path.relpath(abs_path, base).replace(os.sep, "/")
                     return f"/overlays/{quote(rel)}"
             except Exception:
                 pass
-
-            # 3) Como fallback: si el archivo existe dentro de base aunque venga con otra forma, intenta re-ubicarlo
-            #    (útil si guardas solo el nombre relativo tipo "UUID/overlay_p1.png")
-            rel_guess = path.replace("\\", "/")
-            rel_guess = rel_guess.lstrip("./").lstrip("/")
+            rel_guess = path.replace("\\", "/").lstrip("./").lstrip("/")
             candidate = os.path.join(base, rel_guess)
             if os.path.exists(candidate):
                 rel = os.path.relpath(candidate, base).replace(os.sep, "/")
                 return f"/overlays/{quote(rel)}"
-
-            # 4) Último recurso: devuelve el original (dejará la imagen igual si no es válido)
             return path
 
         img_src = make_overlay_url(img_src_path)
@@ -343,14 +310,12 @@ def register_callbacks_13(app, controller, embedder=None):
             if row.get(key):
                 bbox = row.get(key)
                 break
-
         if not bbox:
             if all(k in row for k in ("x", "y", "w", "h")):
                 bbox = [row["x"], row["y"], row["x"] + row["w"], row["y"] + row["h"]]
             elif all(k in row for k in ("left", "top", "right", "bottom")):
                 bbox = [row["left"], row["top"], row["right"], row["bottom"]]
 
-        # Si no hay bbox, actualiza imagen y limpia capas
         if not bbox:
             return (img_src or dash.no_update), []
 
@@ -375,9 +340,11 @@ def register_callbacks_13(app, controller, embedder=None):
         # ========== Dimensiones de página ==========
         page_w = None
         page_h = None
-        pages_info = doc_ctx.get("pages", [])
         if page_num is not None and isinstance(pages_info, list):
-            p = next((p for p in pages_info if p.get("page_index") == page_num or p.get("page") == page_num), None)
+            p = next(
+                (p for p in pages_info if p.get("page_index") == page_num or p.get("page") == page_num),
+                None,
+            )
             if p:
                 page_w = p.get("width")
                 page_h = p.get("height")
@@ -390,26 +357,25 @@ def register_callbacks_13(app, controller, embedder=None):
             return max(0.0, min(100.0, (val / 1000.0) * 100.0))
 
         if page_w and page_h:
-            left_pct = to_pct(x0, page_w)
-            top_pct = to_pct(y0, page_h)
-            width_pct = to_pct(x1 - x0, page_w)
+            left_pct   = to_pct(x0,       page_w)
+            top_pct    = to_pct(y0,       page_h)
+            width_pct  = to_pct(x1 - x0, page_w)
             height_pct = to_pct(y1 - y0, page_h)
         else:
-            left_pct = x0 * 100.0 if x0 <= 1 else (x0 / 1000.0) * 100.0
-            top_pct = y0 * 100.0 if y0 <= 1 else (y0 / 1000.0) * 100.0
-            width_pct = (x1 - x0) * 100.0 if (x1 - x0) <= 1 else ((x1 - x0) / 1000.0) * 100.0
-            height_pct = (y1 - y0) * 100.0 if (y1 - y0) <= 1 else ((y1 - y0) / 1000.0) * 100.0
+            left_pct   = x0       * 100.0 if x0       <= 1 else (x0       / 1000.0) * 100.0
+            top_pct    = y0       * 100.0 if y0       <= 1 else (y0       / 1000.0) * 100.0
+            width_pct  = (x1-x0) * 100.0 if (x1-x0) <= 1 else ((x1-x0) / 1000.0) * 100.0
+            height_pct = (y1-y0) * 100.0 if (y1-y0) <= 1 else ((y1-y0) / 1000.0) * 100.0
 
         style_rect = {
-            "left": f"{left_pct}%",
-            "top": f"{top_pct}%",
-            "width": f"{width_pct}%",
+            "left":   f"{left_pct}%",
+            "top":    f"{top_pct}%",
+            "width":  f"{width_pct}%",
             "height": f"{height_pct}%",
         }
 
         typ = row.get("block_type") or row.get("type")
         label = html.Div(typ, className="pdf-rect-label") if typ else None
-
         rect_div = html.Div(children=[label] if label else [], className="pdf-rect-div", style=style_rect)
 
         return (img_src or dash.no_update), [rect_div]

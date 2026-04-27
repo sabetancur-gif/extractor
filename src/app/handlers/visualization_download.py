@@ -24,6 +24,7 @@ def register_callbacks_01(app, controller, embedder=None):
             Output("tab-toc-extraction-content", "style"),
             Output("tab-clustering-content", "style"),
             Output("tab-llm-analysis-content", "style"),
+            Output("tab-chatbot-content", "style"),
         ],
         [
             Input("sidebar-tabs", "active_tab")
@@ -40,6 +41,7 @@ def register_callbacks_01(app, controller, embedder=None):
             "tab-toc-extraction",
             "tab-clustering",
             "tab-llm-analysis",
+            "tab-chatbot",
         ]
 
         styles = [

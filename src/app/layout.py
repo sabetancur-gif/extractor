@@ -22,6 +22,7 @@ import dash_bootstrap_components as dbc
 
 from src.app.ui.pdf_analysis_panel import pdf_analysis_panel
 from src.app.ui.llm_analysis_panel import llm_analysis_panel
+from src.app.ui.chatbot_panel import chatbot_panel
 
 
 def layout():
@@ -133,6 +134,13 @@ def layout():
                             tab_id="tab-llm-analysis",
                             tabClassName="sidebar-tab",
                             labelClassName="tab-icon tab-icon-ai",
+                        ),
+                        dbc.Tab(
+                            label="Chatbot",
+                            tab_id="tab-chatbot",
+                            tabClassName="sidebar-tab",
+                            labelClassName="tab-icon tab-icon-chat"
+                            
                         ),
                         dbc.Tab(
                             label="Format Conversion",
@@ -675,6 +683,12 @@ def get_tabs_layout():
             id="tab-llm-analysis-content",
             style={"display": "none"},
             children=[llm_analysis_panel()],
+        ),
+
+        html.Div(
+            id="tab-chatbot-content",
+            style={"display": "none"},
+            children=[chatbot_panel()],
         ),
         # html.Div(
         #     id="tab-llm-analysis-content",

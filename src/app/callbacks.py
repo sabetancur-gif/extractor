@@ -88,20 +88,7 @@ def register_callbacks(app, controller, embedder=None):
 
         if selected_doc_id not in valid_values:
             return dash.no_update
-
         return [selected_doc_id]
-    # @app.callback(
-    #     Output("analysis-target", "value", allow_duplicate=True),
-    #     Input("visualization-pdf-selector", "value"),
-    #     State("analysis-target", "options"),
-    #     prevent_initial_call=True
-    # )
-    # def sync_analysis_target_from_visualization(selected_doc_id, analysis_options):
-    #     # Si el usuario selecciona un documento en visualization, lo seleccionamos en analysis-target
-    #     if not selected_doc_id or not analysis_options:
-    #         raise Exception("No doc seleccionado o no hay opciones")
-    #     # analysis-target es multi, así que debe ser lista
-    #     values = [selected_doc_id] if selected_doc_id else []
-    #     # Validar que el valor esté en las opciones
-    #     valid_values = [opt["value"] for opt in analysis_options]
-    #     return [v for v in values if v in valid_values]
+
+    from src.app.handlers.chatbot_handler import register_callbacks_chatbot
+    register_callbacks_chatbot(app, controller, embedder)

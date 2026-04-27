@@ -6,34 +6,38 @@ from typing import Any
 
 
 SYSTEM_PROMPT = """
-You are a document-enrichment assistant.
+You are a document-enrichment assistant for a PDF extraction system.
 
-Your job is to fill missing or low-confidence extraction values only when strong evidence exists in the provided context.
-Never hallucinate. If the value is not supported, return null.
-Do not overwrite reliable extracted values.
-Return STRICT JSON only. No markdown. No code fences.
+Given extracted document data, you must:
+1. Analyze the full_document_text to understand the document content
+2. Identify ALL extractable fields (names, dates, amounts, IDs, addresses, etc.)
+3. Fill missing fields when you can infer them from the text
+4. Correct low-confidence extractions
+5. Suggest new fields not in the original extraction
+
+IMPORTANT:
+- Use the SAME field names as in all_extracted_fields when filling existing fields
+- You CAN suggest new fields not previously detected
+- Set confidence between 0 and 1 based on how certain you are
+- Return STRICT JSON only. No markdown. No code fences.
 
 The JSON MUST have this structure:
 {
   "document_summary": string,
+  "document_type": string,
   "fill_suggestions": [
     {
       "field": string,
       "suggested_value": string or null,
-      "confidence": float between 0 and 1,
-      "status": string,
+      "confidence": float,
+      "status": "filled" | "corrected" | "new" | "rejected",
       "reason": string,
       "evidence": [string],
       "page_number": number | null,
       "block_id": string | null
     }
-  ],
-  "llm_raw_response": string
+  ]
 }
-
-You must return ONLY valid JSON.
-Do not include explanations, markdown, code fences, or text outside the JSON object.
-If you cannot infer values, return an empty array for fill_suggestions.
 """
 
 
@@ -69,21 +73,44 @@ def _candidate_fields(doc_ctx: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_enrichment_prompt(doc_ctx: dict[str, Any], mode: str = "auto_fill_missing") -> str:
+    # Incluir texto completo (truncado) para que el LLM pueda inferir valores
+    full_text = doc_ctx.get("full_text", "")
+    if not full_text:
+        # Reconstruir desde páginas si no está precalculado
+        pages = doc_ctx.get("pages", []) or []
+        texts = []
+        for p in pages:
+            for b in p.get("blocks", []) or []:
+                t = b.get("text", "")
+                if t:
+                    texts.append(t)
+        full_text = "\n".join(texts)
+
+    # Todos los campos (no solo los vacíos) para que el LLM entienda la estructura
+    all_fields = []
+    for f in (doc_ctx.get("fields", []) or [])[:120]:
+        if isinstance(f, dict):
+            all_fields.append({
+                "field": f.get("field") or f.get("label") or f.get("name"),
+                "value": f.get("value"),
+                "confidence": f.get("confidence"),
+                "page": f.get("page_number") or f.get("page"),
+            })
+
     payload = {
         "mode": mode,
         "file_name": doc_ctx.get("file_name"),
-        "doc_id": doc_ctx.get("doc_id"),
         "pages_total": doc_ctx.get("pages_total"),
-        "ocr_average_confidence": doc_ctx.get("ocr_average_confidence"),
+        "full_document_text": full_text[:8000],   # ← NUEVO: texto completo
+        "all_extracted_fields": all_fields,        # ← NUEVO: todos los campos
         "missing_or_low_confidence_fields": _candidate_fields(doc_ctx)[:80],
-        "classified_blocks": doc_ctx.get("classified_blocks", [])[:120],
-        "toc": doc_ctx.get("toc", []),
+        "classified_blocks": doc_ctx.get("classified_blocks", [])[:60],
         "notes": [
-            "Fill only missing or low-confidence fields.",
-            "Do not overwrite reliable values.",
-            "Use evidence from nearby blocks only when clear.",
-            "Return an empty fill_suggestions list if no safe enrichment is possible.",
+            "Analyze the full_document_text to understand the document.",
+            "Fill missing fields AND suggest corrected values for low-confidence ones.",
+            "Use field names from all_extracted_fields when possible.",
+            "If the document has new fields not in all_extracted_fields, suggest them.",
+            "Return fill_suggestions for EVERY field you can infer.",
         ],
     }
-
     return json.dumps(payload, ensure_ascii=False, indent=2)

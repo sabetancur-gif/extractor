@@ -245,7 +245,12 @@ def register_callbacks_02(app, controller, embedder=None):
                                 continue
 
                             text = b.get("text", "")
-                            field_info = extract_fields_from_block(text, text)
+                            neighbor_texts = [
+                                b2.get("text", "") for b2 in blocks
+                                if b2 is not b and b2.get("text")
+                            ]
+                            context = " ".join(neighbor_texts[:3])
+                            field_info = extract_fields_from_block(text, context or text)
 
                             classified_blocks.append({
                                 **b,
@@ -314,6 +319,13 @@ def register_callbacks_02(app, controller, embedder=None):
                                 })
                                 continue
 
+                    full_text_by_page = {}
+                    for p in pages:
+                        if not isinstance(p, dict):
+                            continue
+                        blocks_text = [b.get("text", "") for b in p.get("blocks", []) if b.get("text")]
+                        full_text_by_page[p.get("page_number", 0)] = "\n".join(blocks_text)
+
                     doc_ctx = build_doc_context(
                         doc_id=doc_id,
                         file_name=file_name,
@@ -335,6 +347,8 @@ def register_callbacks_02(app, controller, embedder=None):
                         "blocks": len(classified_blocks),
                         "fields": len(extracted_fields),
                     }
+                    doc_ctx["full_text_by_page"] = full_text_by_page
+                    doc_ctx["full_text"] = "\n\n".join(full_text_by_page.values())
 
                     try:
                         doc_ctx["saved_path"] = store.save_document(doc_ctx)
