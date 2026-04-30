@@ -1,0 +1,110 @@
+{
+  "doc_id": "c128575b-f1ea-4731-a4b2-187492430bc3",
+  "file_name": "690c9f98-8339-4994-a92d-4918998e38ca__Actividad 2 - Instalación y Validación del Entorno.pdf",
+  "file_path": "data/raw\\c128575b-f1ea-4731-a4b2-187492430bc3__690c9f98-8339-4994-a92d-4918998e38ca__Actividad 2 - Instalación y Validación del Entorno.pdf",
+  "pdf_type": "unknown",
+  "processing_mode": "ocr",
+  "pages_total": 1,
+  "pages": [
+    {
+      "page_number": 1,
+      "width": 2481,
+      "height": 3508,
+      "blocks": [
+        {
+          "block_id": "1_ocr_0",
+          "text": "[d",
+          "bbox": [
+            1370.0,
+            1188.0,
+            1389.0,
+            1217.0
+          ],
+          "page": 1,
+          "page_number": 1,
+          "source": "ocr",
+          "order": 0,
+          "confidence": 0.76,
+          "field_type": null,
+          "field_value": null,
+          "semantic_type": "stamp",
+          "semantic_confidence": 0.68,
+          "semantic_labels": [
+            "stamp"
+          ],
+          "is_table_like": false,
+          "is_signature": false,
+          "is_logo": false,
+          "is_image": false,
+          "is_address": false,
+          "is_date": false,
+          "is_amount": false,
+          "is_phone": false,
+          "is_email": false,
+          "is_url": false,
+          "is_identifier": false,
+          "is_name": false,
+          "is_math": false,
+          "type": "figure"
+        }
+      ]
+    }
+  ],
+  "classified_blocks": [
+    {
+      "block_id": "1_ocr_0",
+      "text": "[d",
+      "bbox": [
+        1370.0,
+        1188.0,
+        1389.0,
+        1217.0
+      ],
+      "page": 1,
+      "page_number": 1,
+      "source": "ocr",
+      "order": 0,
+      "confidence": 0.76,
+      "field_type": null,
+      "field_value": null,
+      "semantic_type": "stamp",
+      "semantic_confidence": 0.68,
+      "semantic_labels": [
+        "stamp"
+      ],
+      "is_table_like": false,
+      "is_signature": false,
+      "is_logo": false,
+      "is_image": false,
+      "is_address": false,
+      "is_date": false,
+      "is_amount": false,
+      "is_phone": false,
+      "is_email": false,
+      "is_url": false,
+      "is_identifier": false,
+      "is_name": false,
+      "is_math": false,
+      "type": "figure"
+    }
+  ],
+  "fields": [],
+  "overlays": [
+    {
+      "page": 1,
+      "path": "data/cache\\c128575b-f1ea-4731-a4b2-187492430bc3\\overlays\\overlay_p1.png"
+    }
+  ],
+  "created_at": "2026-04-30T03:52:25Z",
+  "stats": {
+    "pages": 1,
+    "blocks": 1,
+    "fields": 0,
+    "has_overlays": true
+  },
+  "report": {
+    "pages": 1,
+    "blocks": 1,
+    "fields": 0
+  }
+}

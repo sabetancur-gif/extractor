@@ -25,9 +25,9 @@ def _pick_primary_field(field_info: dict[str, Any] | None) -> dict[str, Any] | N
 
     best = max(all_fields, key=lambda item: item.get("score", 0))
     return {
-        "field": field_info.get("field"),
-        "value": field_info.get("value"),
-        "score": field_info.get("score", 0),
+        "field": best.get("field"),
+        "value": best.get("value"),
+        "score": best.get("score", 0),
     }
 
 def enrich_pages(
@@ -46,7 +46,7 @@ def enrich_pages(
         height = int(page.get("height") or 0)
 
         page_blocks: list[dict[str, Any]] = []
-        for order, block in enumerate(page.get("block", []) or []):
+        for order, block in enumerate(page.get("blocks", []) or []):
             text = (block.get("text") or "").strip()
             bbox = normalize_bbox(block.get("bbox"))
 
@@ -77,7 +77,7 @@ def enrich_pages(
                     "semantic_type": semantic["semantic_type"],
                     "semantic_confidence": semantic["confidence"],
                     "semantic_labels": semantic["labels"],
-                    "is_table_like": semantic["is_tabla_like"],
+                    "is_table_like": semantic["is_table_like"],
                     "is_signature": semantic["is_signature"],
                     "is_logo": semantic["is_logo"],
                     "is_image": semantic["is_image"],
