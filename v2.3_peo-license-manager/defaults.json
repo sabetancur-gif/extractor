@@ -1,0 +1,17 @@
+{
+  "_comment": "PEO-level constants applied to every form. Any field listed here will be pre-filled unless the Excel row already has a value for that field. Keys must match the exact PDF field names (case-insensitive). Remove this _comment line if your JSON parser is strict.",
+
+  "reporting_deadline_days": 30,
+
+  "defaults": {
+    "PEO Name":           "Your PEO Legal Name Here",
+    "PEO EIN":            "XX-XXXXXXX",
+    "License Number":     "",
+    "Authorized Signer":  "",
+    "Signer Title":       "",
+    "PEO Address":        "",
+    "PEO City":           "",
+    "PEO State":          "",
+    "PEO Zip":            ""
+  }
+}

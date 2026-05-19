@@ -1,0 +1,25 @@
+{
+  "_comment": "Copy this to report_config.json and fill in your column names.",
+
+  "report_sheet": 0,
+  "report_header_row": 0,
+
+  "column_map": {
+    "Account Number":   "# Case",
+    "State":            "Estado",
+    "Transaction Type": "Proceso",
+    "Employer Name":    "1. Employer",
+    "Business Address": "3. Address Where This Busiess Is Located",
+    "Effective Date":   "4. Date of Change or Termination",
+    "Account ID":       "DWS Account No"
+  },
+
+  "_notes": [
+    "column_map keys = exact column headers in your report file.",
+    "column_map values = exact column headers in the Data sheet of registros.xlsm.",
+    "Any report column not listed here is ignored.",
+    "Any Data column not mapped here will be blank (user fills via HTML app).",
+    "state_override: set this if all rows in the report are for one state.",
+    "process_override: set this if all rows are ADD or TERM (not mixed)."
+  ]
+}
