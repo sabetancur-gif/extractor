@@ -1,5 +1,0 @@
-# Configuración ejemplo para logs y exportación
-log_dir: logs
-export_format: csv  # csv o xlsx
-log_level: INFO
-export_path: logs/exports
